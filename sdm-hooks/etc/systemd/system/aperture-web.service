@@ -1,0 +1,18 @@
+[Unit]
+Description=Aperture Web Dashboard
+After=aperture-monitor.service
+Wants=aperture-monitor.service
+
+[Service]
+Type=simple
+User=aperture
+Group=aperture
+WorkingDirectory=/opt/aperture/aperture
+ExecStart=/opt/aperture/.venv/bin/python3 /opt/aperture/aperture/src/dashboard.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

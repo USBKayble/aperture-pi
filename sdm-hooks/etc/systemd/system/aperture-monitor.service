@@ -1,0 +1,25 @@
+[Unit]
+Description=Aperture Flock Camera Wardriver
+After=network.target gpsd.service
+Wants=gpsd.service
+
+[Service]
+Type=simple
+User=aperture
+Group=aperture
+WorkingDirectory=/opt/aperture/aperture
+ExecStart=/opt/aperture/.venv/bin/python3 /opt/aperture/aperture/src/main.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+Environment=PYTHONUNBUFFERED=1
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/aperture/data /opt/aperture/logs
+
+[Install]
+WantedBy=multi-user.target
