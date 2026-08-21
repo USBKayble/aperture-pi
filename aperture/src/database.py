@@ -180,6 +180,7 @@ class Database:
             "total_detections": total,
             "unique_cameras": unique_macs,
             "by_tier": dict(tier_counts),
+            "by_confidence": dict(tier_counts),
             "by_type": dict(types),
         }
 

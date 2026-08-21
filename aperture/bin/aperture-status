@@ -7,79 +7,113 @@ set -e
 echo "=== Aperture Wardriver Status ==="
 echo ""
 
-# Check database
+# --- Battery (UPS HAT) ---
+echo "Battery:"
+# Check for common UPS HAT sysfs interfaces
+if [ -f /sys/class/power_supply/ups-battery/capacity ]; then
+    BATTERY_CAPACITY=$(cat /sys/class/power_supply/ups-battery/capacity)
+    BATTERY_STATUS=$(cat /sys/class/power_supply/ups-battery/status)
+    echo "  Capacity: ${BATTERY_CAPACITY}%"
+    echo "  Status: $BATTERY_STATUS"
+elif [ -f /sys/class/power_supply/BAT0/capacity ]; then
+    BATTERY_CAPACITY=$(cat /sys/class/power_supply/BAT0/capacity)
+    BATTERY_STATUS=$(cat /sys/class/power_supply/BAT0/status)
+    echo "  Capacity: ${BATTERY_CAPACITY}%"
+    echo "  Status: $BATTERY_STATUS"
+elif [ -f /sys/class/power_supply/rpi-battery/capacity ]; then
+    BATTERY_CAPACITY=$(cat /sys/class/power_supply/rpi-battery/capacity)
+    echo "  Capacity: ${BATTERY_CAPACITY}%"
+else
+    # Check for x735/x705 UPS HAT
+    if command -v x735-get-power >/dev/null 2>&1; then
+        VOLTAGE=$(x735-get-power | grep "Voltage" | awk '{print $2}')
+        echo "  Voltage: $VOLTAGE"
+    fi
+    # Check for pico UPS HAT via i2c
+    if command -v i2cget >/dev/null 2>&1; then
+        POWER=$(i2cget -y 1 0x55 0x00 w 2>/dev/null || echo "N/A")
+        if [ "$POWER" != "N/A" ]; then
+            echo "  Power: $POWER"
+        fi
+    fi
+    echo "  Status: Not detected (connect UPS HAT)"
+fi
+
+# Battery voltage if available via script
+if command -v get_battery_voltage >/dev/null 2>&1; then
+    VOLTAGE=$(get_battery_voltage 2>/dev/null || echo "N/A")
+    echo "  Voltage: $VOLTAGE"
+fi
+
+echo ""
+
+# --- Database ---
 DB="/opt/aperture/data/detections.db"
 if [ -f "$DB" ]; then
     echo "Database: OK ($DB)"
-    python3 -c "
-import sqlite3, json
+    python3 /opt/aperture/.venv/bin/python3 -c "
+import sqlite3
 conn = sqlite3.connect('$DB')
 c = conn.cursor()
 total = c.execute('SELECT COUNT(*) FROM detections').fetchone()[0]
 unique = c.execute('SELECT COUNT(DISTINCT mac) FROM detections WHERE mac IS NOT NULL').fetchone()[0]
-tiers = c.execute('SELECT confidence_tier, COUNT(*) FROM detections WHERE confidence_tier IS NOT NULL GROUP BY confidence_tier').fetchall()
 print(f'  Detections: {total} total, {unique} unique cameras')
-for tier, count in tiers:
-    print(f'  Tier {tier}: {count}')
 " 2>/dev/null || echo "  Database error"
 else
     echo "Database: NOT FOUND"
 fi
-
 echo ""
 
-# Check WiFi
+# --- WiFi ---
 echo "WiFi:"
 if iw wlan1 info 2>/dev/null | grep -q "monitor"; then
-    echo "  wlan1: MONITOR MODE ✓"
+    echo "  wlan1: MONITOR MODE"
 else
-    echo "  wlan1: NOT in monitor mode ✗"
+    echo "  wlan1: NOT in monitor mode"
 fi
 
-# Check if aperture-wifi is running
 if systemctl is-active --quiet aperture-monitor 2>/dev/null; then
-    echo "  Service: RUNNING ✓"
+    echo "  Service: RUNNING"
 else
-    echo "  Service: STOPPED ✗"
+    echo "  Service: STOPPED"
 fi
-
 echo ""
 
-# Check SDR
+# --- SDR ---
 echo "SDR:"
 if rtl_test -t 2>&1 | grep -q "No supported devices"; then
-    echo "  RTL-SDR: NOT FOUND ✗"
+    echo "  RTL-SDR: NOT FOUND"
 elif rtl_test -t 2>&1 | grep -q "Found 1 device"; then
-    echo "  RTL-SDR: DETECTED ✓"
+    echo "  RTL-SDR: DETECTED"
 else
     echo "  RTL-SDR: UNKNOWN"
 fi
-
 echo ""
 
-# Check GPS
+# --- GPS ---
 echo "GPS:"
 if command -v cgps &>/dev/null; then
     GPS_DATA=$(cgps -c 2>/dev/null || echo "")
-    if echo "$GPS_DATA" | grep -q "GPGGA"; then
-        FIX=$(echo "$GPS_DATA" | grep "Fix" | head -1)
-        echo "  GPS: $FIX"
+    if echo "$GPS_DATA" | grep -q "Fix"; then
+        FIX=$(echo "$GPS_DATA" | grep "Fix" | head -1 | awk '{print $2}')
+        SAT=$(echo "$GPS_DATA" | grep "Satellite" | head -1)
+        echo "  Fix: $FIX"
+        echo "  $SAT"
     else
-        echo "  GPS: NO FIX ✗"
+        echo "  GPS: NO FIX"
     fi
 else
-    echo "  GPS: gpsd not installed ✗"
+    echo "  GPS: gpsd not installed"
 fi
-
 echo ""
 
-# Check Dashboard
+# --- Dashboard ---
 echo "Dashboard:"
 if systemctl is-active --quiet aperture-web 2>/dev/null; then
-    echo "  Service: RUNNING ✓"
+    echo "  Service: RUNNING"
     echo "  URL: http://10.42.42.1:8080"
 else
-    echo "  Service: STOPPED ✗"
+    echo "  Service: STOPPED"
 fi
 
 echo ""

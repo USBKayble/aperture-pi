@@ -109,15 +109,28 @@
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <h2 class="text-xl mb-2">WiFi Scanner</h2>
-                <div x-show="system.wifi.started" class="text-green-400">● RUNNING</div>
-                <div x-show="!system.wifi.started" class="text-red-400">● STOPPED</div>
-                <div class="text-sm text-gray-400 mt-2" x-text="system.wifi.iface || 'N/A'"></div>
+                <div x-show="system.wifi.monitor_mode" class="text-green-400">● MONITOR MODE</div>
+                <div x-show="!system.wifi.monitor_mode" class="text-red-400">● STOPPED</div>
+                <div class="text-sm text-gray-400 mt-2" x-text="system.wifi.interface || 'N/A'"></div>
             </div>
             <div>
-                <h2 class="text-xl mb-2">SDR Detector</h2>
-                <div x-show="system.sdr.started" class="text-green-400">● RUNNING</div>
-                <div x-show="!system.sdr.started" class="text-red-400">● STOPPED</div>
-                <div class="text-sm text-gray-400 mt-2" x-text="system.sdr.device || 'N/A'"></div>
+                <h2 class="text-xl mb-2">LTE SDR</h2>
+                <div class="text-green-400">● <span x-text="system.sdr.status || 'running'"></span></div>
+                <div class="text-sm text-gray-400 mt-2" x-text="system.sdr.device || 'RTL-SDR v4'"></div>
+            </div>
+            <div>
+                <h2 class="text-xl mb-2">GPS</h2>
+                <div x-show="system.gps.status === 'active'" class="text-green-400">● FIX ACQUIRED</div>
+                <div x-show="system.gps.status !== 'active'" class="text-red-400">● NO FIX</div>
+            </div>
+            <div>
+                <h2 class="text-xl mb-2">Battery</h2>
+                <div x-show="system.battery && system.battery.capacity" class="text-green-400">
+                    ● <span x-text="system.battery.capacity + '%'"></span>
+                    <span x-text="system.battery.status"></span>
+                    <span x-text="system.battery.voltage_v ? system.battery.voltage_v + 'V' : ''"></span>
+                </div>
+                <div x-show="!system.battery.capacity" class="text-yellow-400">● Not detected</div>
             </div>
         </div>
     </div>
@@ -233,14 +246,16 @@
                 try {
                     const res = await fetch('/api/stats');
                     const raw = await res.json();
+                    const byConfidence = raw.by_confidence || {};
+                    const byTier = raw.by_tier || byConfidence || {};
                     this.stats = {
                         total: raw.total_detections || 0,
                         unique: raw.unique_cameras || 0,
                         lte_correlated: raw.by_type?.correlated || 0,
-                        t4: raw.by_confidence?.['4'] || 0,
-                        t3: raw.by_confidence?.['3'] || 0,
-                        t2: raw.by_confidence?.['2'] || 0,
-                        t1: raw.by_confidence?.['1'] || 0,
+                        t4: byTier['4'] || byTier.tier_4 || 0,
+                        t3: byTier['3'] || byTier.tier_3 || 0,
+                        t2: byTier['2'] || byTier.tier_2 || 0,
+                        t1: byTier['1'] || byTier.tier_1 || 0,
                     };
                 } catch (e) { console.error(e); }
             },
