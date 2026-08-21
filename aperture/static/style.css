@@ -1,0 +1,11 @@
+/* Aperture dashboard styling */
+body {
+    background: #0d1117;
+    color: #58a6ff;
+}
+.detection-marker {
+    background-size: contain;
+}
+table tbody tr:hover {
+    background-color: rgba(92, 184, 92, 0.1);
+}

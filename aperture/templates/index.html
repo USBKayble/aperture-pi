@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aperture — Flock Camera Wardriver</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/terminal-css@1.0.3/dist/terminal.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</head>
+<body class="bg-gray-900 text-green-400 font-mono">
+<div x-data="{ tab: 'map' }">
+
+    <!-- Header -->
+    <div class="bg-black p-4 border-b border-green-400 flex justify-between items-center">
+        <h1 class="text-2xl">📡 APERTURE WARDDRIVER</h1>
+        <div class="flex gap-4">
+            <span class="text-sm" x-text="'System Time: ' + new Date().toLocaleTimeString()"></span>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="border-b border-green-400">
+        <button @click="tab='map'"
+                :class="tab==='map' ? 'border-green-400 text-green-300' : 'border-transparent text-gray-500'"
+                class="px-4 py-2 border-b-2">Map View</button>
+        <button @click="tab='list'"
+                :class="tab==='list' ? 'border-green-400 text-green-300' : 'border-transparent text-gray-500'"
+                class="px-4 py-2 border-b-2">Detection List</button>
+        <button @click="tab='stats'"
+                :class="tab==='stats' ? 'border-green-400 text-green-300' : 'border-transparent text-gray-500'"
+                class="px-4 py-2 border-b-2">Statistics</button>
+        <button @click="tab='system'"
+                :class="tab==='system' ? 'border-green-400 text-green-300' : 'border-transparent text-gray-500'"
+                class="px-4 py-2 border-b-2">System Status</button>
+    </div>
+
+    <!-- Map Tab -->
+    <div x-show="tab==='map'" x-init="initMap()" x-ref="map" id="map" class="h-[calc(100vh-120px)]"></div>
+
+    <!-- List Tab -->
+    <div x-show="tab==='list'" class="p-4">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="border-b border-green-400/30">
+                    <tr>
+                        <th class="text-left p-2">Time</th>
+                        <th class="text-left p-2">Type</th>
+                        <th class="text-left p-2">MAC</th>
+                        <th class="text-left p-2">SSID</th>
+                        <th class="text-left p-2">RSSI</th>
+                        <th class="text-left p-2">Freq (MHz)</th>
+                        <th class="text-left p-2">Tier</th>
+                        <th class="text-left p-2">Lat</th>
+                        <th class="text-left p-2">Lon</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="det in detections" :key="det.id">
+                        <tr class="border-b border-green-400/10">
+                            <td class="p-2" x-text="formatTime(det.timestamp)"></td>
+                            <td class="p-2" x-text="det.type"></td>
+                            <td class="p-2 font-bold" x-text="det.mac || 'N/A'"></td>
+                            <td class="p-2" x-text="det.ssid || 'N/A'"></td>
+                            <td class="p-2" x-text="det.rssi ? det.rssi + ' dBm' : 'N/A'"></td>
+                            <td class="p-2" x-text="det.frequency_mhz || 'N/A'"></td>
+                            <td class="p-2">
+                                <span :class="{'text-red-400': det.confidence_tier==1, 
+                                                'text-yellow-400': det.confidence_tier==2, 
+                                                'text-blue-400': det.confidence_tier==3, 
+                                                'text-green-400': det.confidence_tier==4}">
+                                    Tier <span x-text="det.confidence_tier || '?'"</span>
+                                </span>
+                            </td>
+                            <td class="p-2" x-text="det.lat ? det.lat.toFixed(5) : 'No Fix'"></td>
+                            <td class="p-2" x-text="det.lon ? det.lon.toFixed(5) : 'No Fix'"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Stats Tab -->
+    <div x-show="tab==='stats'" class="p-4">
+        <div class="grid grid-cols-3 gap-4 mb-4">
+            <div class="bg-black p-4 border border-green-400/30">
+                <div class="text-3xl font-bold" x-text="stats.total || 0">0</div>
+                <div class="text-sm text-gray-400">Total Detections</div>
+            </div>
+            <div class="bg-black p-4 border border-green-400/30">
+                <div class="text-3xl font-bold text-green-400" x-text="stats.unique || 0">0</div>
+                <div class="text-sm text-gray-400">Unique Cameras</div>
+            </div>
+            <div class="bg-black p-4 border border-green-400/30">
+                <div class="text-3xl font-bold text-yellow-400" x-text="stats.lte_correlated || 0">0</div>
+                <div class="text-sm text-gray-400">LTE+WiFi Correlated</div>
+            </div>
+        </div>
+
+        <canvas x-ref="chart" id="tierChart" class="w-full"></canvas>
+    </div>
+
+    <!-- System Tab -->
+    <div x-show="tab==='system'" class="p-4">
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <h2 class="text-xl mb-2">WiFi Scanner</h2>
+                <div x-show="system.wifi.started" class="text-green-400">● RUNNING</div>
+                <div x-show="!system.wifi.started" class="text-red-400">● STOPPED</div>
+                <div class="text-sm text-gray-400 mt-2" x-text="system.wifi.iface || 'N/A'"></div>
+            </div>
+            <div>
+                <h2 class="text-xl mb-2">SDR Detector</h2>
+                <div x-show="system.sdr.started" class="text-green-400">● RUNNING</div>
+                <div x-show="!system.sdr.started" class="text-red-400">● STOPPED</div>
+                <div class="text-sm text-gray-400 mt-2" x-text="system.sdr.device || 'N/A'"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export buttons -->
+    <div class="fixed bottom-4 right-4 flex gap-2">
+        <a href="/export/kml" class="px-4 py-2 bg-black border border-green-400 text-green-400 hover:bg-green-400/10">Export KML</a>
+        <a href="/export/csv" class="px-4 py-2 bg-black border border-green-400 text-green-400 hover:bg-green-400/10">Export CSV</a>
+        <a href="/export/gpx" class="px-4 py-2 bg-black border border-green-400 text-green-400 hover:bg-green-400/10">Export GPX</a>
+    </div>
+</div>
+
+<script>
+    let map = null;
+    let markers = [];
+    let chart = null;
+
+    function initMap() {
+        if (map) return;
+        map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            opacity: 0.3
+        }).addTo(map);
+    }
+
+    function updateMarkers(detections) {
+        if (!map) return;
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+
+        detections.forEach(det => {
+            if (det.lat && det.lon) {
+                const color = det.confidence_tier >= 4 ? 'green' :
+                             det.confidence_tier >= 3 ? 'blue' :
+                             det.confidence_tier >= 2 ? 'yellow' : 'red';
+                const marker = L.marker([det.lat, det.lon], {
+                    icon: L.divIcon({
+                        html: `<div class="w-3 h-3 rounded-full bg-${color}-400 border-2 border-white"></div>`,
+                        className: 'detection-marker'
+                    })
+                }).addTo(map);
+                marker.bindPopup(`<b>${det.mac || 'Unknown'}</b><br>Tier ${det.confidence_tier || '?'}`);
+                markers.push(marker);
+            }
+        });
+
+        if (markers.length > 0) {
+            const group = L.featureGroup(markers.map(m => m));
+            map.fitBounds(group.getBounds().pad(0.1));
+        }
+    }
+
+    function formatTime(ts) {
+        if (!ts) return 'N/A';
+        return new Date(ts).toLocaleTimeString();
+    }
+
+    function initChart(ctx, data) {
+        if (chart) chart.destroy();
+        chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Tier 4', 'Tier 3', 'Tier 2', 'Tier 1'],
+                datasets: [{
+                    label: 'Detections by Confidence',
+                    data: [data.t4 || 0, data.t3 || 0, data.t2 || 0, data.t1 || 0],
+                    backgroundColor: ['#22c55e', '#3b82f6', '#eab308', '#ef4444']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { color: '#9ca3af' } } }
+            }
+        });
+    }
+</script>
+
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('dashboard', () => ({
+            detections: [],
+            stats: {},
+            system: {wifi: {}, sdr: {}, gps: {}},
+            tab: 'map',
+
+            async init() {
+                this.fetchDetections();
+                this.fetchStats();
+                this.fetchSystem();
+                setInterval(() => {
+                    this.fetchDetections();
+                    this.fetchSystem();
+                }, 2000);
+            },
+
+            async fetchDetections() {
+                try {
+                    const res = await fetch('/api/detections');
+                    this.detections = await res.json();
+                    if (this.tab === 'map') {
+                        setTimeout(() => {
+                            updateMarkers(this.detections);
+                        }, 100);
+                    }
+                    if (this.tab === 'stats' && this.$refs.chart) {
+                        initChart(this.$refs.chart.getContext('2d'), this.getTierData());
+                    }
+                } catch (e) { console.error(e); }
+            },
+
+            async fetchStats() {
+                try {
+                    const res = await fetch('/api/stats');
+                    const raw = await res.json();
+                    this.stats = {
+                        total: raw.total_detections || 0,
+                        unique: raw.unique_cameras || 0,
+                        lte_correlated: raw.by_type?.correlated || 0,
+                        t4: raw.by_confidence?.['4'] || 0,
+                        t3: raw.by_confidence?.['3'] || 0,
+                        t2: raw.by_confidence?.['2'] || 0,
+                        t1: raw.by_confidence?.['1'] || 0,
+                    };
+                } catch (e) { console.error(e); }
+            },
+
+            async fetchSystem() {
+                try {
+                    const res = await fetch('/api/system');
+                    this.system = await res.json();
+                } catch (e) { console.error(e); }
+            },
+
+            getTierData() {
+                return {
+                    t4: this.stats.t4 || 0,
+                    t3: this.stats.t3 || 0,
+                    t2: this.stats.t2 || 0,
+                    t1: this.stats.t1 || 0,
+                };
+            },
+
+            initMap() {
+                setTimeout(() => initMap(), 300);
+            }
+        }));
+    });
+</script>
+</body>
+</html>

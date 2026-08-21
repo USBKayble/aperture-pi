@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# aperture-status — Quick system status for Aperture wardriver
+# Usage: aperture-status
+
+set -e
+
+echo "=== Aperture Wardriver Status ==="
+echo ""
+
+# Check database
+DB="/opt/aperture/data/detections.db"
+if [ -f "$DB" ]; then
+    echo "Database: OK ($DB)"
+    python3 -c "
+import sqlite3, json
+conn = sqlite3.connect('$DB')
+c = conn.cursor()
+total = c.execute('SELECT COUNT(*) FROM detections').fetchone()[0]
+unique = c.execute('SELECT COUNT(DISTINCT mac) FROM detections WHERE mac IS NOT NULL').fetchone()[0]
+tiers = c.execute('SELECT confidence_tier, COUNT(*) FROM detections WHERE confidence_tier IS NOT NULL GROUP BY confidence_tier').fetchall()
+print(f'  Detections: {total} total, {unique} unique cameras')
+for tier, count in tiers:
+    print(f'  Tier {tier}: {count}')
+" 2>/dev/null || echo "  Database error"
+else
+    echo "Database: NOT FOUND"
+fi
+
+echo ""
+
+# Check WiFi
+echo "WiFi:"
+if iw wlan1 info 2>/dev/null | grep -q "monitor"; then
+    echo "  wlan1: MONITOR MODE ✓"
+else
+    echo "  wlan1: NOT in monitor mode ✗"
+fi
+
+# Check if aperture-wifi is running
+if systemctl is-active --quiet aperture-monitor 2>/dev/null; then
+    echo "  Service: RUNNING ✓"
+else
+    echo "  Service: STOPPED ✗"
+fi
+
+echo ""
+
+# Check SDR
+echo "SDR:"
+if rtl_test -t 2>&1 | grep -q "No supported devices"; then
+    echo "  RTL-SDR: NOT FOUND ✗"
+elif rtl_test -t 2>&1 | grep -q "Found 1 device"; then
+    echo "  RTL-SDR: DETECTED ✓"
+else
+    echo "  RTL-SDR: UNKNOWN"
+fi
+
+echo ""
+
+# Check GPS
+echo "GPS:"
+if command -v cgps &>/dev/null; then
+    GPS_DATA=$(cgps -c 2>/dev/null || echo "")
+    if echo "$GPS_DATA" | grep -q "GPGGA"; then
+        FIX=$(echo "$GPS_DATA" | grep "Fix" | head -1)
+        echo "  GPS: $FIX"
+    else
+        echo "  GPS: NO FIX ✗"
+    fi
+else
+    echo "  GPS: gpsd not installed ✗"
+fi
+
+echo ""
+
+# Check Dashboard
+echo "Dashboard:"
+if systemctl is-active --quiet aperture-web 2>/dev/null; then
+    echo "  Service: RUNNING ✓"
+    echo "  URL: http://10.42.42.1:8080"
+else
+    echo "  Service: STOPPED ✗"
+fi
+
+echo ""
+echo "=== Quick Commands ==="
+echo "  sudo systemctl restart aperture-monitor  # restart detector"
+echo "  sudo systemctl restart aperture-web      # restart dashboard"
+echo "  tail -f /opt/aperture/logs/aperture-*.log # live log"

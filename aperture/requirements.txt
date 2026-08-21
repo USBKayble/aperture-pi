@@ -1,0 +1,9 @@
+# Aperture Python dependencies
+scapy
+pyrtlsdr
+gps3
+flask
+rich
+pyshark
+numpy
+matplotlib

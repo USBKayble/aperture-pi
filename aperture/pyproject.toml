@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aperture"
+version = "1.0.0"
+description = "Flock camera wardriver for Raspberry Pi 4"
+authors = [{name = "Aperture Contributors"}]
+license = {text = "MIT"}
+requires-python = ">=3.11"
+dependencies = [
+    "scapy",
+    "pyrtlsdr",
+    "gps3",
+    "flask",
+    "rich",
+    "pyshark",
+    "numpy",
+    "matplotlib",
+]
+
+[project.scripts]
+aperture = "aperture.src.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]

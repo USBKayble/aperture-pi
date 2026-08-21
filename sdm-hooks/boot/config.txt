@@ -1,0 +1,28 @@
+# /boot/config.txt for Aperture wardriver
+# Disable onboard WiFi to prevent interference with RTL-SDR
+dtoverlay=disable-wifi
+dtoverlay=disable-bt
+
+# Enable UART for NEO-6M GPS
+enable_uart=1
+
+# Disable WiFi power management
+dtoverlay=disable-wifi-pm
+
+# Disable LED (optional, reduces power draw)
+dtparam=leds.disable=on
+
+# HDMI off (headless)
+hdmi_blanking=2
+
+# SD card overclock (for faster writes)
+dtparam=sdram Overclock=1
+
+# USB settings
+dtoverlay=dwc2
+
+# Camera interface (not needed)
+start_x=0
+
+# GPU memory (minimal)
+gpu_mem=16
