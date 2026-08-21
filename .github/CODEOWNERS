@@ -1,0 +1,25 @@
+# Code owners for Aperture
+
+# Core detection code — Kayble
+aperture/src/wifi_scanner.py    @USBKayble
+aperture/src/sdr_detector.py     @USBKayble
+aperture/src/gps_handler.py      @USBKayble
+aperture/src/correlator.py       @USBKayble
+aperture/src/database.py         @USBKayble
+aperture/src/dashboard.py        @USBKayble
+aperture/src/main.py             @USBKayble
+
+# Configuration
+aperture/config/                 @USBKayble
+sdm-hooks/                       @USBKayble
+
+# Build pipeline
+.github/                         @USBKayble
+build.sh                         @USBKayble
+
+# Docs
+docs/                            @USBKayble
+README.md                        @USBKayble
+
+# Tests
+aperture/tests/                  @USBKayble

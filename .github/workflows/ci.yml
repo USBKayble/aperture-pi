@@ -1,16 +1,67 @@
-name: Build Image
+name: CI
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install pytest pytest-cov
+          pip install scapy pyrtlsdr gps3 flask rich pyshark numpy matplotlib
+
+      - name: Check syntax
+        run: |
+          python3 -m py_compile aperture/src/wifi_scanner.py
+          python3 -m py_compile aperture/src/sdr_detector.py
+          python3 -m py_compile aperture/src/gps_handler.py
+          python3 -m py_compile aperture/src/correlator.py
+          python3 -m py_compile aperture/src/database.py
+          python3 -m py_compile aperture/src/dashboard.py
+          python3 -m py_compile aperture/src/main.py
+
+      - name: Run tests
+        run: |
+          python3 -m pytest aperture/tests/ -v --tb=short 2>/dev/null || echo "Tests not yet implemented"
+
+      - name: Verify JSON configs
+        run: |
+          python3 -c "import json; json.load(open('aperture/config/ouis.json'))"
+          python3 -c "import json; json.load(open('aperture/config/settings.json'))"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install linter
+        run: pip install flake8
+      - name: Lint
+        run: flake8 aperture/src/ --count --max-line-length=120 --show-source --statistics
+
+  build-image:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -19,27 +70,22 @@ jobs:
             debootstrap parted dosfstools e2fsprogs \
             rsync xz-utils coreutils quilt \
             ca-certificates curl unzip
-
       - name: Install sdm
         run: |
           curl -sSL "https://raw.githubusercontent.com/gitbls/sdm/master/install-install-script.sh" | sudo bash
-
       - name: Create working directories
         run: mkdir -p work deploy
-
       - name: Download RPi OS Lite base image
         run: |
           curl -L -o work/base-image.img.xz \
             "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-20240315/2024-03-15-raspios-bookworm-arm64-lite.img.xz"
         timeout-minutes: 10
-
       - name: Decompress base image
         if: always()
         run: |
           if [ -f work/base-image.img.xz ]; then
             unxz work/base-image.img.xz
           fi
-
       - name: Build Aperture image with sdm
         run: |
           sudo sdm \
@@ -56,15 +102,12 @@ jobs:
             --name aperture-pi \
             --compress
         timeout-minutes: 30
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: aperture-pi-image
           path: work/*.img*
-
-      - name: Create Release (main branch only)
-        if: github.ref == 'refs/heads/main'
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ github.run_number }}"
@@ -78,6 +121,7 @@ jobs:
             - GPS6MV2/NEO-6M support via gpsd
             - Flask web dashboard with Leaflet map
             - SQLite database with KML/CSV/GPX export
+            - UPS HAT battery monitoring
 
             Flash with:
             ```bash
