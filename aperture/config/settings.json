@@ -32,7 +32,9 @@
         "baud": 9600,
         "gpsd_host": "localhost",
         "gpsd_port": 2947,
-        "timeout_s": 5.0
+        "timeout_s": 5.0,
+        "fallback_lat": null,
+        "fallback_lon": null
     },
 
     "correlation": {

@@ -34,9 +34,11 @@ GPSD_TIMEOUT = 5.0  # seconds
 class GPSHandler:
     """Handles GPS data from gpsd / NEO-6M module."""
 
-    def __init__(self, host=GPSD_HOST, port=GPSD_PORT):
+    def __init__(self, host=GPSD_HOST, port=GPSD_PORT, fallback_lat=None, fallback_lon=None):
         self.host = host
         self.port = port
+        self.fallback_lat = fallback_lat
+        self.fallback_lon = fallback_lon
         self._running = False
         self._thread = None
         self._lock = threading.Lock()
@@ -175,12 +177,34 @@ class GPSHandler:
             self._thread.join(timeout=3)
 
     def get_current_fix(self) -> Optional[dict]:
-        """Get current GPS fix as a dict, or None if no fix."""
+        """Get current GPS fix as a dict, or fallback/static location, or None."""
         with self._lock:
             if self._lat is None or self._lon is None:
+                # No GPS fix — try static fallback
+                if self.fallback_lat and self.fallback_lon:
+                    return {
+                        "lat": round(self.fallback_lat, 8),
+                        "lon": round(self.fallback_lon, 8),
+                        "alt": None,
+                        "speed_kmh": None,
+                        "satellites": 0,
+                        "fix_quality": "static_fallback",
+                        "last_update": datetime.now(timezone.utc).isoformat(),
+                    }
                 return None
             # Consider stale after 5 seconds
             if time.time() - self._last_update > 5.0:
+                # GPS is stale — use static fallback if available
+                if self.fallback_lat and self.fallback_lon:
+                    return {
+                        "lat": round(self.fallback_lat, 8),
+                        "lon": round(self.fallback_lon, 8),
+                        "alt": round(self._alt, 1) if self._alt is not None else None,
+                        "speed_kmh": None,
+                        "satellites": self._satellites,
+                        "fix_quality": "fallback_last_fix",
+                        "last_update": datetime.fromtimestamp(self._last_update, tz=timezone.utc).isoformat(),
+                    }
                 return None
             return {
                 "lat": round(self._lat, 8),

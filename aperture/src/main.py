@@ -11,6 +11,7 @@ Usage:
 """
 
 import argparse
+import json
 import logging
 import signal
 import sys
@@ -25,6 +26,30 @@ from sdr_detector import SDRDetector  # noqa: E402
 from gps_handler import GPSHandler  # noqa: E402
 from correlator import Correlator  # noqa: E402
 from database import Database  # noqa: E402
+
+# Load settings
+SETTINGS_PATH = Path(__file__).parent.parent / "config" / "settings.json"
+DEFAULT_SETTINGS = {
+    "wifi": {"interface": "wlan1", "channels": [1, 6, 11], "dwell_ms": 250},
+    "sdr": {"enabled": True, "gain": 40, "ppm_error": 0, "direct_sampling": 2},
+    "gps": {"enabled": True, "device": "/dev/serial0", "baud": 9600,
+            "gpsd_host": "localhost", "gpsd_port": 2947,
+            "fallback_lat": None, "fallback_lon": None},
+    "correlation": {"window_s": 3.0, "dedup_window_s": 30.0, "gps_freshness_s": 5.0},
+    "database": {"path": "/opt/aperture/data/detections.db"},
+    "dashboard": {"host": "0.0.0.0", "port": 8080},
+}
+
+def load_settings():
+    """Load settings from JSON file, falling back to defaults."""
+    try:
+        with open(SETTINGS_PATH) as f:
+            return json.load(f)
+    except Exception as e:
+        logger.warning(f"Could not load settings.json: {e}. Using defaults.")
+        return DEFAULT_SETTINGS
+
+settings = load_settings()
 
 # --- Logging Setup ---
 
@@ -69,7 +94,11 @@ class Aperture:
 
         # Start GPS first (other systems need it)
         if self.gps_enabled:
-            self.gps = GPSHandler()
+            gps_settings = settings.get("gps", {})
+            self.gps = GPSHandler(
+                fallback_lat=gps_settings.get("fallback_lat"),
+                fallback_lon=gps_settings.get("fallback_lon"),
+            )
             self.gps.start()
             logger.info("GPS handler started (NEO-6M on /dev/serial0)")
 
