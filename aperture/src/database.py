@@ -139,7 +139,9 @@ class Database:
                 gps_fix.get("speed_kmh") if gps_fix else None,
                 gps_fix.get("satellites") if gps_fix else 0,
                 int(detection.get("correlation", {}).get("lte_correlated", False)) if "correlation" in detection else 0,
-                json.dumps(detection.get("correlation", {}).get("lte_bands", [])) if "correlation" in detection else None,
+                json.dumps(
+                    detection.get("correlation", {}).get("lte_bands", [])
+                ) if "correlation" in detection else None,
                 detection.get("frame_count"),
             ))
             self.conn.commit()

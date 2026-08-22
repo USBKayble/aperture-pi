@@ -7,12 +7,10 @@ timestamp + GPS proximity, deduplicates by MAC, and outputs unified
 detection events for database logging and web dashboard.
 """
 
-import json
 import logging
 import threading
 import time
 from collections import deque
-from datetime import datetime, timezone
 from typing import Optional
 
 logger = logging.getLogger("aperture.correlator")
@@ -119,8 +117,10 @@ class Correlator:
             return True
         self._last_seen[mac] = now
         # Clean old entries
-        self._last_seen = {k: v for k, v in self._last_seen.items()
-                          if now - v < DEDUP_WINDOW_S * 5}
+        self._last_seen = {
+            k: v for k, v in self._last_seen.items()
+            if now - v < DEDUP_WINDOW_S * 5
+        }
         return False
 
     def _gps_monitor(self):

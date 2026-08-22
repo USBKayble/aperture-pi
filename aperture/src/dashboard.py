@@ -12,14 +12,13 @@ Shows:
 Access: http://10.42.42.1:8080/
 """
 
-import json
 import logging
 import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
-from flask import Flask, render_template, jsonify, send_file
+from flask import Flask, render_template, jsonify
 from database import Database
 
 logger = logging.getLogger("aperture.dashboard")
