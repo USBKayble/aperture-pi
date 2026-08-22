@@ -19,14 +19,12 @@ Trigger: power spike > baseline + threshold dB, sustained for 2+ consecutive sca
 
 import json
 import logging
-import os
 import subprocess
 import sys
 import threading
 import time
 from collections import deque
 from datetime import datetime, timezone
-from pathlib import Path
 
 logger = logging.getLogger("aperture.sdr_detector")
 

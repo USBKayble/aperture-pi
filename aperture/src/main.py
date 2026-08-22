@@ -11,23 +11,21 @@ Usage:
 """
 
 import argparse
-import json
 import logging
 import os
 import signal
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
-# Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from wifi_scanner import WiFiSniffer
-from sdr_detector import SDRDetector
-from gps_handler import GPSHandler
-from correlator import Correlator
-from database import Database
+from wifi_scanner import WiFiSniffer  # noqa: E402
+from sdr_detector import SDRDetector  # noqa: E402
+from gps_handler import GPSHandler  # noqa: E402
+from correlator import Correlator  # noqa: E402
+from database import Database  # noqa: E402
 
 # --- Logging Setup ---
 

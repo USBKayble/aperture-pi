@@ -21,8 +21,6 @@ Confidence tiers:
 
 import json
 import logging
-import os
-import re
 import subprocess
 import sys
 import threading
@@ -31,10 +29,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from scapy.all import Dot11, Dot11Elt
-
-# --- Config ---
-
+# Config and paths (module-level, computed at import time)
 CONFIG_DIR = Path(__file__).parent.parent / "config"
 DATA_DIR = Path(__file__).parent.parent / "data"
 LOG_DIR = Path(__file__).parent.parent / "logs"
@@ -265,8 +260,11 @@ class WiFiSniffer:
                 if detection:
                     with self._lock:
                         self.detection_queue.append(detection)
-                    logger.info(f"WiFi detection: {detection['mac']} "
-                              f"(RSSI {detection['rssi']}, tier {detection['confidence_tier']})")
+                    logger.info(
+                        f"WiFi detection: {detection['mac']} "
+                        f"(RSSI {detection['rssi']}, tier "
+                        f"{detection['confidence_tier']})"
+                    )
 
             process.kill()
             self._running = False
