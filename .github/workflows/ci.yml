@@ -60,6 +60,7 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
@@ -103,11 +104,13 @@ jobs:
             --compress
         timeout-minutes: 30
       - name: Upload artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: aperture-pi-image
           path: work/*.img*
       - name: Create Release
+        if: always() && success()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ github.run_number }}"
