@@ -105,7 +105,7 @@ jobs:
         timeout-minutes: 30
       - name: Upload artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: aperture-pi-image
           path: work/*.img*
